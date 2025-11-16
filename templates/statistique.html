@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard Évaluations</title>
+
+    <link href="{{ url_for('static', filename='bootstrap.min.css') }}" rel="stylesheet">
+
+    <style>
+        body { background: #f4f7f9; padding-top: 80px; }
+        .navbar-blue { background-color: #159fdf !important; }
+        .navbar-blue .nav-link, .navbar-blue .navbar-brand { color: #fff !important; }
+        img.graph { width: 100%; border-radius: 10px; }
+    </style>
+</head>
+
+<body>
+
+<nav class="navbar navbar-blue fixed-top">
+    <div class="container d-flex justify-content-between">
+        <span class="navbar-brand">ISSEA - Dashboard</span>
+        <a href="{{ url_for('logout') }}" class="nav-link">Déconnexion</a>
+    </div>
+</nav>
+
+<main class="container">
+
+    <!-- 🔷 FILTRES -->
+    <div class="card p-3 mb-4">
+        <div class="row g-3">
+
+            <!-- Choix classe -->
+            <div class="col-md-6">
+                <label>Classe :</label>
+                <select id="select_classe" class="form-select">
+                    {% for cls in classes %}
+                    <option value="{{ cls }}">{{ cls }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Choix enseignant/matière (chargé dynamiquement) -->
+            <div class="col-md-6">
+                <label>Enseignant :</label>
+                <select id="select_enseignant" class="form-select">
+                    <option value="">Sélectionner une classe d'abord</option>
+                </select>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="row mt-3">
+      <div class="col-md-3">
+          <div class="card text-center p-3">
+              <h5>Total étudiants attendus</h5>
+              <h1 id="total_students">0</h1>
+            
+          </div>
+      </div>
+      <div class="col-md-3">
+          <div class="card text-center p-3">
+              <h5>Total étudiants enregistrés</h5>
+              <h1 id="classe_students">0</h1>
+              
+          </div>
+      </div>
+      <div class="col-md-3">
+          <div class="card text-center p-3">
+              <h5>Effectif des femmes</h5>
+              <h1 id="femme_students">0</h1>
+              
+          </div>
+      </div>
+      <div class="col-md-3">
+          <div class="card text-center p-3">
+              <h5>Effectif des hommes</h5>
+              <h1 id="homme_students">0</h1>
+              
+          </div>
+      </div>
+    </div>
+
+    <!-- 🔷 GRAPHIQUES -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card p-3">
+                <h5 class="text-center fw-bold">Evaluation de l'enseignant</h5>
+                <img id="img_score" class="graph">
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card p-3">
+                <h5 class="text-center fw-bold">Evaluation des enseignements</h5>
+                <img id="img_critere" class="graph">
+            </div>
+        </div>
+
+        <div class="col-md-12 mb-4">
+            <div class="card p-3">
+                <h5 class="text-center fw-bold">WordCloud</h5>
+                <img id="img_wordcloud" class="graph">
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card p-3">
+                <h5 class="text-center fw-bold">Nombre d'évaluations par étudiant</h5>
+
+                <table class="table table-bordered table-striped" id="table_evals">
+                    <thead>
+                        <tr>
+                            <th>Nom & Prénoms</th>
+                            <th>Nombre d’évaluations</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody> <!-- rempli dynamiquement -->
+                </table>
+            </div>
+        </div>
+    </div>
+
+
+</main>
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+
+    // 🔥 1. Quand on change de classe → charger les matières
+    $("#select_classe").change(function() {
+        const classe = $(this).val();
+
+        $.post("/load_matieres", { classe: classe }, function(data) {
+            let options = "";
+            data.matieres.forEach(m => {
+                options += `<option value="${m}">${m}</option>`;
+            });
+            $("#select_enseignant").html(options);
+        });
+    });
+
+    // 🔥 2. Quand on change de matière → mettre à jour les graphiques
+    $("#select_classe, #select_enseignant").change(function() {
+        const classe = $("#select_classe").val();
+        const enseignant = $("#select_enseignant").val();
+
+        if (!classe || !enseignant) return;
+
+        $.post("/update_dashboard", { classe: classe, enseignant: enseignant }, function(data) {
+            $("#img_score").attr("src", "data:image/png;base64," + data.score);
+            $("#img_critere").attr("src", "data:image/png;base64," + data.critere);
+            $("#img_wordcloud").attr("src", "data:image/png;base64," + data.wordcloud);
+        });
+    });
+
+</script>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+
+</body>
+</html>
