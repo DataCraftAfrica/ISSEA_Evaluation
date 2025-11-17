@@ -51,11 +51,14 @@ db.init_app(app)
 
 
 # Configuration du serveur mail
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'appsrf42@gmail.com'  # Remplace par ton email
-app.config['MAIL_PASSWORD'] = 'ywwp pevr iewf kwog '  # Génère un mot de passe d'application si tu utilises Gmail
+
+# MAIL CONFIG FROM ENV
+app.config['MAIL_SERVER'] = os.environ.get("MAIL_SERVER")
+app.config['MAIL_PORT'] = int(os.environ.get("MAIL_PORT", 587))
+app.config['MAIL_USE_TLS'] = os.environ.get("MAIL_USE_TLS", "True") == "True"
+app.config['MAIL_USERNAME'] = os.environ.get("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.environ.get("MAIL_PASSWORD")
+
 
 mail = Mail(app)
 
