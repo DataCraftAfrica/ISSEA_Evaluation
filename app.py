@@ -43,30 +43,6 @@ app.secret_key = os.environ.get("SECRET_KEY")
 app.config.from_object(Config)
 
 # Charger l'URL de Render
-db_url = os.environ.get("DATABASE_URL2")
-
-if db_url:
-    # Render renvoie parfois une URL incompatible -> correction obligatoire
-    if db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
-
-    # Ajout du sslmode=require
-    if "sslmode" not in db_url:
-        db_url += "?sslmode=require"
-
-    app.config["SQLALCHEMY_DATABASE_URI"] = db_url
-else:
-    # fallback local
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///local.db"
-
-# Paramètres essentiels pour Render
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_pre_ping": True,   # ← Empêche l’erreur "SSL connection has been closed"
-    "pool_recycle": 300,     # ← Recycle la connexion
-    "pool_size": 5,
-    "max_overflow": 10
-}
 
 db.init_app(app)
 
@@ -82,12 +58,6 @@ mail = Mail(app)
 
 classes = ['LGTSD', 'L2BD', 'MAP1', 'M2SA', 'MDSMS1']
 
-db_config = {
-    'host': 'localhost',  # Essaie avec '127.0.0.1' si 'localhost' ne marche pas
-    'user': 'root',
-    'password': '',  # Mets ton mot de passe ici si nécessaire
-    'database': 'Projet_Scolaire'
-}
 
 # Connexion Google Sheets
 def get_gsheet_enseignement():
