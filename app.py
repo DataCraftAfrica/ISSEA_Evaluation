@@ -34,6 +34,9 @@ import pandas as pd
 import plotly.graph_objs as go
 import plotly.express as px
 import json
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
+
 
 ###
 ### Bibliotheque
@@ -60,7 +63,7 @@ app.config['MAIL_USERNAME'] = os.environ.get("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.environ.get("MAIL_PASSWORD")
 
 
-mail = Mail(app)
+#mail = Mail(app)
 
 classes = ['LGTSD', 'L2BD', 'MAP1', 'M2SA', 'MDSMS1']
 
@@ -112,6 +115,28 @@ def get_gsheet_eva_enseignement():
     # ⚠️ on ouvre le fichier Google Sheets 
     spreadsheet = client.open_by_key("1m-eYggFz6n7mvpG8JgHMf_Wqa6ZWHRscQ-iOX1VJ6CE")
     return spreadsheet
+
+
+def send_email(dest, subject, body):
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = os.environ.get("BREVO_API_KEY")
+
+    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
+        sib_api_v3_sdk.ApiClient(configuration)
+    )
+
+    email = sib_api_v3_sdk.SendSmtpEmail(
+        sender={"email": "appsrf42@gmail.com", "name": "DataCraft AFRICA"},
+        to=[{"email": dest}],
+        subject=subject,
+        text_content=body,
+    )
+
+    try:
+        api_instance.send_transac_email(email)
+        print("📧 Email envoyé avec succès")
+    except ApiException as e:
+        print(f"❌ Erreur envoi mail : {e}")
 
 
 
@@ -439,7 +464,8 @@ def inscription():
             msg = Message(subject, sender='appsrf42@gmail.com', recipients=[email])
             msg.body = body
 
-            mail.send(msg)
+            send_email(email, subject, body)
+
 
             flash("Compte crée avec succès ! Vérifier votre boite mail pour le mot de passe.", "success")
 
@@ -632,6 +658,26 @@ def fetch_combined_data(classe):
         return pd.DataFrame()
 
     return data if isinstance(data, pd.DataFrame) else pd.DataFrame()
+
+
+
+@app.route('/admin/clear_etudiants/<token>')
+def clear_etudiants(token):
+
+    SECRET_TOKEN = "0099_SYLAR"  # Mets un token fort et temporaire
+
+    if token != SECRET_TOKEN:
+        return "⛔ Accès refusé", 403
+
+    try:
+        num_rows_deleted = db.session.query(Etudiant).delete()
+        db.session.commit()
+        return f"✅ Table vidée ! {num_rows_deleted} lignes supprimées."
+    except Exception as e:
+        db.session.rollback()
+        return f"❌ Erreur : {e}", 500
+
+
 
 
 # ['LGTSD', 'L2BD', 'MAP1', 'M2SA', 'MDSMS1']

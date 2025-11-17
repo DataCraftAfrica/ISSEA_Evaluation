@@ -10,4 +10,5 @@ gunicorn
 wordcloud
 matplotlib
 plotly>=5.0.0
+sib_api_v3_sdk
 
