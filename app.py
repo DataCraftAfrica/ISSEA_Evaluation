@@ -23,7 +23,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-
+from resend import Resend
 import io
 import numpy as np
 from wordcloud import WordCloud
@@ -44,6 +44,7 @@ from sib_api_v3_sdk.rest import ApiException
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
 app.config.from_object(Config)
+resend = Resend(api_key=os.getenv("RESEND_API_KEY"))
 
 # Charger l'URL de Render
 
@@ -56,11 +57,11 @@ db.init_app(app)
 # Configuration du serveur mail
 
 # MAIL CONFIG FROM ENV
-app.config['MAIL_SERVER'] = os.environ.get("MAIL_SERVER")
-app.config['MAIL_PORT'] = int(os.environ.get("MAIL_PORT", 587))
-app.config['MAIL_USE_TLS'] = os.environ.get("MAIL_USE_TLS", "True") == "True"
-app.config['MAIL_USERNAME'] = os.environ.get("MAIL_USERNAME")
-app.config['MAIL_PASSWORD'] = os.environ.get("MAIL_PASSWORD")
+#app.config['MAIL_SERVER'] = os.environ.get("MAIL_SERVER")
+#app.config['MAIL_PORT'] = int(os.environ.get("MAIL_PORT", 587))
+#app.config['MAIL_USE_TLS'] = os.environ.get("MAIL_USE_TLS", "True") == "True"
+#app.config['MAIL_USERNAME'] = os.environ.get("MAIL_USERNAME")
+#app.config['MAIL_PASSWORD'] = os.environ.get("MAIL_PASSWORD")
 
 
 #mail = Mail(app)
@@ -437,8 +438,6 @@ def inscription():
 
         # Générer mot de passe aléatoire
         plain_password = generate_random_password(10)
-
-        # Hacher le mot de passe
         hashed_password = generate_password_hash(plain_password)
 
         # Créer un nouvel étudiant
@@ -454,32 +453,43 @@ def inscription():
             db.session.add(new_student)
             db.session.commit()
             print(f"✅ Étudiant ajouté : {nom}, Mot de passe généré = {plain_password}")
-            
-            subject = 'Validation de compte !'
 
-            body = f"""Bonjour {nom}, \n Votre compte a été crée avec succès. Votre mot de passe est: {plain_password}  \n DataCraft AFRICA, le progrès n'attend pas
-            """
+            # Sujet + contenu du mail
+            subject = "Validation de compte !"
+            body = f"""
+        Bonjour {nom},
 
-            # Création du message
-            msg = Message(subject, sender='appsrf42@gmail.com', recipients=[email])
-            msg.body = body
+        Votre compte DataCraft AFRICA a été créé avec succès.
 
-            send_email(email, subject, body)
+        Votre mot de passe : {plain_password}
 
+        Cordialement,
+        DataCraft AFRICA — Le progrès n'attend pas.
+        """
 
-            flash("Compte crée avec succès ! Vérifier votre boite mail pour le mot de passe.", "success")
+            # 📩 Envoi du mail via RESEND
+            try:
+                resend.emails.send(
+                    from_="DataCraft AFRICA <onboarding@resend.dev>",
+                    to=email,
+                    subject=subject,
+                    text=body
+                )
+                print("📨 Mail envoyé via Resend")
+            except Exception as mail_err:
+                print(f"❌ Erreur Resend : {mail_err}")
+                flash(f"Compte créé, mais impossible d'envoyer le mail. Votre mot de passe est {plain_password}", "warning")
+                return redirect(url_for("login"))
 
+            flash("Compte créé avec succès ! Vérifiez votre boîte mail.", "success")
             return redirect(url_for("login"))
-        
-        except Exception as e:
+
+        except Exception as db_err:
             db.session.rollback()
-            print(f"❌ Erreur : {e}")
+            print(f"❌ Erreur SQL : {db_err}")
             flash("Erreur lors de l'inscription.", "danger")
 
-       
     return render_template('inscription.html', classe=classes)
-
-
 
 
 @app.route('/register/<Etudiant>', methods=['GET', 'POST'])
@@ -677,6 +687,34 @@ def clear_etudiants(token):
         db.session.rollback()
         return f"❌ Erreur : {e}", 500
 
+
+
+@app.route('/admin/modifier_classe/email=<email>&classe=<nouvelle_classe>&token=<token>')
+def modifier_classe(email, nouvelle_classe, token):
+
+    SECRET_TOKEN = "0099_SYLAR"  # même système de sécurité
+
+    # Vérification du token
+    if token != SECRET_TOKEN:
+        return "⛔ Accès refusé", 403
+
+    try:
+        # Chercher l'étudiant
+        etu = Etudiant.query.filter_by(email=email).first()
+
+        if not etu:
+            return f"❌ Aucun étudiant trouvé avec l'email : {email}", 404
+
+        ancienne_classe = etu.classe
+        etu.classe = nouvelle_classe
+
+        db.session.commit()
+
+        return f"✅ Classe modifiée avec succès ! {email} est passé de {ancienne_classe} ➝ {nouvelle_classe}"
+
+    except Exception as e:
+        db.session.rollback()
+        return f"❌ Erreur : {e}", 500
 
 
 
