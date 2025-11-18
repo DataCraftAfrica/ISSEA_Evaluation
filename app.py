@@ -470,7 +470,7 @@ DataCraft AFRICA — Le progrès n'attend pas
             # ------------ 📩 Envoi du mail via RESEND ----------------
             try:
                 resend.Emails.send({
-                    "from": "DataCraft AFRICA <no-reply@datacraft.africa>",
+                    "from": "onboarding@resend.dev",
                     "to": [email],
                     "subject": subject,
                     "text": body
