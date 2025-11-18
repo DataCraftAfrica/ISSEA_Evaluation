@@ -23,7 +23,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-from resend import Resend
+import resend
 import io
 import numpy as np
 from wordcloud import WordCloud
@@ -44,7 +44,7 @@ from sib_api_v3_sdk.rest import ApiException
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
 app.config.from_object(Config)
-resend = Resend(api_key=os.getenv("RESEND_API_KEY"))
+resend.api_key = os.getenv("RESEND_API_KEY")
 
 # Charger l'URL de Render
 
@@ -452,34 +452,37 @@ def inscription():
         try:
             db.session.add(new_student)
             db.session.commit()
-            print(f"✅ Étudiant ajouté : {nom}, Mot de passe généré = {plain_password}")
+            print(f"✅ Étudiant ajouté : {nom}, Mot de passe = {plain_password}")
 
             # Sujet + contenu du mail
             subject = "Validation de compte !"
             body = f"""
-        Bonjour {nom},
+Bonjour {nom},
 
-        Votre compte DataCraft AFRICA a été créé avec succès.
+Votre compte DataCraft AFRICA a été créé avec succès.
 
-        Votre mot de passe : {plain_password}
+Votre mot de passe est : {plain_password}
 
-        Cordialement,
-        DataCraft AFRICA — Le progrès n'attend pas.
-        """
+Cordialement,
+DataCraft AFRICA — Le progrès n'attend pas
+"""
 
-            # 📩 Envoi du mail via RESEND
+            # ------------ 📩 Envoi du mail via RESEND ----------------
             try:
-                resend.emails.send(
-                    from_="DataCraft AFRICA <onboarding@resend.dev>",
-                    to=email,
-                    subject=subject,
-                    text=body
-                )
+                resend.Emails.send({
+                    "from": "DataCraft AFRICA <no-reply@datacraft.africa>",
+                    "to": [email],
+                    "subject": subject,
+                    "text": body
+                })
+
                 print("📨 Mail envoyé via Resend")
+
             except Exception as mail_err:
                 print(f"❌ Erreur Resend : {mail_err}")
-                flash(f"Compte créé, mais impossible d'envoyer le mail. Votre mot de passe est {plain_password}", "warning")
+                flash(f"Compte créé, mais erreur d'envoi mail. Mot de passe = {plain_password}", "warning")
                 return redirect(url_for("login"))
+            # ----------------------------------------------------------
 
             flash("Compte créé avec succès ! Vérifiez votre boîte mail.", "success")
             return redirect(url_for("login"))
@@ -490,6 +493,7 @@ def inscription():
             flash("Erreur lors de l'inscription.", "danger")
 
     return render_template('inscription.html', classe=classes)
+
 
 
 @app.route('/register/<Etudiant>', methods=['GET', 'POST'])
