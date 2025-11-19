@@ -473,7 +473,8 @@ def inscription():
             except Exception as e:
                 flash(
                     f"Compte créé, mais impossible d’envoyer un mail. "
-                    f"Votre mot de passe est : {plain_password}",
+                    f"Votre mot de passe est : {plain_password}"
+                    f"Pensez à bien le conserver",
                     "warning"
                 )
                 print(f"❌ Erreur envoi mail : {e}")
