@@ -35,7 +35,8 @@ import plotly.graph_objs as go
 import plotly.express as px
 import json
 #import sib_api_v3_sdk
-
+from flask import current_app
+from threading import Thread
 ###
 ### Bibliotheque
 
@@ -404,6 +405,16 @@ def login():
     return render_template('login.html')
 
 
+def send_async_email(app, msg):
+    """Envoi asynchrone du mail avec contexte Flask"""
+    with app.app_context():
+        try:
+            mail.send(msg)
+            print("📧 Email envoyé avec succès")
+        except Exception as e:
+            print(f"❌ Erreur envoi mail async : {e}")
+
+
 
 @app.route('/inscription', methods=['GET', 'POST'])
 def inscription():
@@ -420,7 +431,7 @@ def inscription():
         # Hacher le mot de passe
         hashed_password = generate_password_hash(plain_password)
 
-        # Créer un nouvel étudiant
+        # Création objet étudiant
         new_student = Etudiant(
             email=email,
             nom=nom,
@@ -434,34 +445,48 @@ def inscription():
             db.session.commit()
             print(f"✅ Étudiant ajouté : {nom}, Mot de passe généré = {plain_password}")
 
+            # ------------ EMAIL --------------
             try:
-            
-                subject = 'Validation de compte !'
+                subject = "Validation de compte !"
+                body = (
+                    f"Bonjour {nom},\n\n"
+                    f"Votre compte a été créé avec succès.\n"
+                    f"Votre mot de passe est : {plain_password}\n\n"
+                    f"DataCraft AFRICA — Le progrès n'attend pas."
+                )
 
-                body = f"""Bonjour {nom}, \n Votre compte a été crée avec succès. Votre mot de passe est: {plain_password}  \n DataCraft AFRICA, le progrès n'attend pas
-                """
-
-                # Création du message
-                msg = Message(subject, sender='appsrf42@gmail.com', recipients=[email])
+                msg = Message(
+                    subject,
+                    sender="appsrf42@gmail.com",
+                    recipients=[email]
+                )
                 msg.body = body
 
-                mail.send(msg)
+                # Lancement de l’envoi dans un thread séparé
+                Thread(
+                    target=send_async_email,
+                    args=(current_app._get_current_object(), msg)
+                ).start()
 
+                flash("Compte créé avec succès ! Vérifiez votre email pour le mot de passe.", "success")
 
-                flash("Compte crée avec succès ! Vérifier votre boite mail pour le mot de passe.", "success")
-
-            except:
-                flash(f"Compte crée avec succès, mais impossible de vous envoyer un mail. Votre mot de passe est: {plain_password}. Pensez à bien le conserver", "warning")
+            except Exception as e:
+                flash(
+                    f"Compte créé, mais impossible d’envoyer un mail. "
+                    f"Votre mot de passe est : {plain_password}",
+                    "warning"
+                )
+                print(f"❌ Erreur envoi mail : {e}")
 
             return redirect(url_for("login"))
-        
+
         except Exception as e:
             db.session.rollback()
             print(f"❌ Erreur : {e}")
             flash("Erreur lors de l'inscription.", "danger")
 
-       
-    return render_template('inscription.html', classe=classes)
+    return render_template("inscription.html", classe=classes)
+
 
 
 
