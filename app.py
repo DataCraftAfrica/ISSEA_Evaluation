@@ -34,9 +34,7 @@ import pandas as pd
 import plotly.graph_objs as go
 import plotly.express as px
 import json
-import sib_api_v3_sdk
-from sib_api_v3_sdk.rest import ApiException
-
+#import sib_api_v3_sdk
 
 ###
 ### Bibliotheque
@@ -44,7 +42,7 @@ from sib_api_v3_sdk.rest import ApiException
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
 app.config.from_object(Config)
-resend.api_key = os.getenv("RESEND_API_KEY")
+#resend.api_key = os.getenv("RESEND_API_KEY")
 
 # Charger l'URL de Render
 
@@ -57,14 +55,14 @@ db.init_app(app)
 # Configuration du serveur mail
 
 # MAIL CONFIG FROM ENV
-#app.config['MAIL_SERVER'] = os.environ.get("MAIL_SERVER")
-#app.config['MAIL_PORT'] = int(os.environ.get("MAIL_PORT", 587))
-#app.config['MAIL_USE_TLS'] = os.environ.get("MAIL_USE_TLS", "True") == "True"
-#app.config['MAIL_USERNAME'] = os.environ.get("MAIL_USERNAME")
-#app.config['MAIL_PASSWORD'] = os.environ.get("MAIL_PASSWORD")
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'appsrf42@gmail.com'  # Remplace par ton email
+app.config['MAIL_PASSWORD'] = 'ywwp pevr iewf kwog '  # Génère un mot de passe d'application si tu utilises Gmail
 
+mail = Mail(app)
 
-#mail = Mail(app)
 
 classes = ['LGTSD', 'L2BD', 'MAP1', 'M2SA', 'MDSMS1']
 
@@ -117,27 +115,6 @@ def get_gsheet_eva_enseignement():
     spreadsheet = client.open_by_key("1m-eYggFz6n7mvpG8JgHMf_Wqa6ZWHRscQ-iOX1VJ6CE")
     return spreadsheet
 
-
-def send_email(dest, subject, body):
-    configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key['api-key'] = os.environ.get("BREVO_API_KEY")
-
-    api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
-        sib_api_v3_sdk.ApiClient(configuration)
-    )
-
-    email = sib_api_v3_sdk.SendSmtpEmail(
-        sender={"email": "appsrf42@gmail.com", "name": "DataCraft AFRICA"},
-        to=[{"email": dest}],
-        subject=subject,
-        text_content=body,
-    )
-
-    try:
-        api_instance.send_transac_email(email)
-        print("📧 Email envoyé avec succès")
-    except ApiException as e:
-        print(f"❌ Erreur envoi mail : {e}")
 
 
 
@@ -427,6 +404,7 @@ def login():
     return render_template('login.html')
 
 
+
 @app.route('/inscription', methods=['GET', 'POST'])
 def inscription():
 
@@ -438,6 +416,8 @@ def inscription():
 
         # Générer mot de passe aléatoire
         plain_password = generate_random_password(10)
+
+        # Hacher le mot de passe
         hashed_password = generate_password_hash(plain_password)
 
         # Créer un nouvel étudiant
@@ -452,46 +432,35 @@ def inscription():
         try:
             db.session.add(new_student)
             db.session.commit()
-            print(f"✅ Étudiant ajouté : {nom}, Mot de passe = {plain_password}")
+            print(f"✅ Étudiant ajouté : {nom}, Mot de passe généré = {plain_password}")
 
-            # Sujet + contenu du mail
-            subject = "Validation de compte !"
-            body = f"""
-Bonjour {nom},
-
-Votre compte DataCraft AFRICA a été créé avec succès.
-
-Votre mot de passe est : {plain_password}
-
-Cordialement,
-DataCraft AFRICA — Le progrès n'attend pas
-"""
-
-            # ------------ 📩 Envoi du mail via RESEND ----------------
             try:
-                resend.Emails.send({
-                    "from": "onboarding@resend.dev",
-                    "to": [email],
-                    "subject": subject,
-                    "text": body
-                })
+            
+                subject = 'Validation de compte !'
 
-                print("📨 Mail envoyé via Resend")
+                body = f"""Bonjour {nom}, \n Votre compte a été crée avec succès. Votre mot de passe est: {plain_password}  \n DataCraft AFRICA, le progrès n'attend pas
+                """
 
-            except Exception as mail_err:
-                print(f"❌ Erreur Resend : {mail_err}")
-                flash(f"Compte créé, mais erreur d'envoi mail. Mot de passe = {plain_password}", "warning")
-                return redirect(url_for("login"))
-            # ----------------------------------------------------------
+                # Création du message
+                msg = Message(subject, sender='appsrf42@gmail.com', recipients=[email])
+                msg.body = body
 
-            flash("Compte créé avec succès ! Vérifiez votre boîte mail.", "success")
+                mail.send(msg)
+
+
+                flash("Compte crée avec succès ! Vérifier votre boite mail pour le mot de passe.", "success")
+
+            except:
+                flash(f"Compte crée avec succès, mais impossible de vous envoyer un mail. Votre mot de passe est: {plain_password}. Pensez à bien le conserver", "warning")
+
             return redirect(url_for("login"))
-
-        except Exception as db_err:
+        
+        except Exception as e:
             db.session.rollback()
-            print(f"❌ Erreur SQL : {db_err}")
+            print(f"❌ Erreur : {e}")
             flash("Erreur lors de l'inscription.", "danger")
 
+       
     return render_template('inscription.html', classe=classes)
 
 
